@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  mysql:
+    build:
+      context: ./DB
+      dockerfile: Dockerfile
+    image: mysql:8.0
+    container_name: mysql-local
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: local_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  elasticsearch:
+    build:
+      context: ./Elasticsearch
+      dockerfile: Dockerfile
+    image: elasticsearch:8.12.0
+    container_name: elasticsearch-local
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  ollama:
+    build:
+      context: ./Ollama
+      dockerfile: Dockerfile
+    image: ollama/ollama:latest
+    container_name: ollama-local
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    entrypoint: >
+      /bin/sh -c "
+        ollama serve &
+        sleep 2 &&
+        ollama pull gemma3:4b-it-q4_K_M &&
+        ollama pull mxbai-embed-large &&
+        wait
+      "
+    restart:  unless-stopped
+    networks:
+      - backend
+
+volumes:
+  mysql-data:
+  esdata:
+  ollama-data:
+
+networks:
+  backend:
+    name: local-network
+    driver: bridge
